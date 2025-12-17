@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 800px;">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">予約内容の確認</h4>
+        </div>
+        <div class="card-body">
+            <h5 class="mb-3">{{ username }} 様のご予約内容</h5>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>日時</th>
+                            <th>メニュー</th>
+                            <th>料金</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in cart %}
+                        <tr>
+                            <td>{{ item.date }} {{ item.time }}〜 ({{ item.duration }}分)</td>
+                            <td>{{ item.menu_name }}</td>
+                            <td class="text-end">¥{{ item.price }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="2" class="text-end">合計</td>
+                            <td class="text-end fs-5">¥{{ total_price }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="text-center mt-4">上記の内容で予約を確定してもよろしいですか？</p>
+
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg px-4">
+                    予約選択画面にもどる
+                </a>
+                
+                <form action="{{ url_for('book_confirm') }}" method="POST">
+                    <button type="submit" class="btn btn-danger btn-lg px-5 fw-bold">
+                        予約確定 (オーダー完了)
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

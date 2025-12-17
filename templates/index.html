@@ -1,0 +1,190 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* カレンダー部分のスタイル */
+    .timeline-container { overflow-x: auto; background: #fff; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px;}
+    .timeline-table { min-width: 1000px; width: 100%; border-collapse: separate; border-spacing: 0; }
+    .timeline-table th, .timeline-table td { border-right: 1px solid #eee; border-bottom: 1px solid #eee; text-align: center; height: 50px; vertical-align: middle; padding: 0; }
+    .timeline-table thead th { background-color: #fd7e14; color: white; position: sticky; top: 0; z-index: 10; }
+    .timeline-table th.date-col { background-color: #f8f9fa; position: sticky; left: 0; z-index: 11; width: 100px; border-right: 2px solid #ddd; }
+    
+    /* セルの状態 */
+    .slot-available { cursor: pointer; background-color: #fff; color: #3b6e56; font-weight: bold; }
+    .slot-available:hover { background-color: #e8f5e9; }
+    .slot-booked-db { background-color: #ddd; color: #555; font-size: 0.8em; } /* 既存予約 */
+    .slot-booked-cart { background-color: #ffeeba; color: #856404; font-size: 0.8em; border: 2px solid #ffc107; } /* 選択中 */
+    
+    /* 予約リストエリア */
+    .cart-area { background-color: #f8f9fa; border-top: 2px solid #3b6e56; padding: 20px; }
+    .cart-item { background: white; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+</style>
+
+<div class="container-fluid">
+    <h3 id="calendar">予約カレンダー</h3>
+<div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+  
+  <a href="{{ url_for('index', date=prev_date) }}#calendar" 
+     style="text-decoration: none; padding: 8px 16px; background: #0056b3; color: white; border-radius: 4px;">
+    &laquo; 前週
+  </a>
+
+  <form action="{{ url_for('index') }}#calendar" method="get" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+    <label for="date_picker" style="margin:0; font-weight:bold;">予約</label>
+    
+    <input type="date" id="date_picker" name="date" 
+           value="{{ current_date }}" 
+           min="{{ min_date }}" 
+           max="{{ max_date }}"
+           onchange="this.form.submit()"
+           style="padding: 8px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;">
+  </form>
+
+  <a href="{{ url_for('index', date=next_date) }}#calendar" 
+     style="text-decoration: none; padding: 8px 16px; background: #0056b3; color: white; border-radius: 4px;">
+    次週 &raquo;
+  </a>
+
+</div>
+
+    <p class="text-muted">ご希望の日時（〇）をクリックしてメニューを選択してください。</p>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="alert alert-info">
+                {% for message in messages %}{{ message }}<br>{% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="timeline-container">
+        <table class="timeline-table">
+            <thead>
+                <tr>
+                    <th class="date-col">日付</th>
+                    {% for t in time_slots %}<th>{{ t }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for date in dates %}
+                {% set d_str = date.strftime('%Y-%m-%d') %}
+                <tr>
+                    <th class="date-col">{{ date.strftime('%m/%d') }} <small>({{ date.strftime('%a') }})</small></th>
+                    {% for t in time_slots %}
+                        {% set cell = schedule[d_str][t] %}
+                        
+                        {% if cell.status == 'booked_db' %}
+                            <td class="slot-booked-db" colspan="{{ cell.span }}">{{ cell.menu }}</td>
+                        {% elif cell.status == 'booked_cart' %}
+                            <td class="slot-booked-cart" colspan="{{ cell.span }}">選択中</td>
+                        {% elif cell.status == 'booked_span' %}
+                            {% else %}
+                            <td class="slot-available" 
+                                onclick="openMenuModal('{{ d_str }}', '{{ t }}')">〇</td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="cart-area">
+        <h4><i class="bi bi-cart-check"></i> 予約リスト ({{ username }}様)</h4>
+        {% if cart %}
+            <div class="list-group mb-3">
+                {% for item in cart %}
+                <div class="cart-item">
+                    <div>
+                        <strong>{{ item.date }} {{ item.time }}〜</strong><br>
+                        {{ item.menu_name }} ({{ item.duration }}分) - ¥{{ item.price }}
+                    </div>
+                    <form action="{{ url_for('index') }}" method="POST" style="margin:0;">
+                        <input type="hidden" name="delete_item" value="1">
+                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">取り消し</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-end">
+                <a href="{{ url_for('review') }}" class="btn btn-success btn-lg">メニュー選択完了・予約確認へ</a>
+            </div>
+        {% else %}
+            <p class="text-muted">現在選択されているメニューはありません。</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="menuModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">メニュー選択</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('index') }}" method="POST">
+                <div class="modal-body">
+                    <p><strong>日時:</strong> <span id="modalDate"></span> <span id="modalTime"></span>〜</p>
+                    <p><strong>お客様名:</strong> {{ username }} 様</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">メニューを選んでください</label>
+                        <select name="menu" class="form-select" required onchange="updatePrice(this)">
+                            <option value="" selected disabled>-- 選択 --</option>
+                            {% for key, item in menu.items() %}
+                                <option value="{{ key }}" data-price="{{ item.price }}">
+                                    {{ item.name }} ({{ item.duration }}分) - ¥{{ item.price }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="text-end fw-bold text-danger" id="priceDisplay">料金: - 円</p>
+                    
+                    <input type="hidden" name="add_item" value="1">
+                    <input type="hidden" name="date" id="inputDate">
+                    <input type="hidden" name="time" id="inputTime">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn btn-primary">リストに追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const menuModal = new bootstrap.Modal(document.getElementById('menuModal'));
+
+    function openMenuModal(date, time) {
+        document.getElementById('modalDate').innerText = date;
+        document.getElementById('modalTime').innerText = time;
+        document.getElementById('inputDate').value = date;
+        document.getElementById('inputTime').value = time;
+        document.getElementById('priceDisplay').innerText = "料金: - 円";
+        menuModal.show();
+    }
+
+    function updatePrice(select) {
+        const price = select.options[select.selectedIndex].dataset.price;
+        document.getElementById('priceDisplay').innerText = "料金: ¥" + price;
+    }
+</script>
+
+
+<script>
+  window.addEventListener('load', function() {
+    // URLに #calendar が含まれているかチェック
+    if (window.location.hash === '#calendar') {
+      const element = document.getElementById('calendar');
+      if (element) {
+        // カレンダーの位置までスムーズにスクロール
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  });
+</script>
+
+{% endblock %}

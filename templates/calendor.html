@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* 横スクロール可能なカレンダー */
+    .timeline-wrapper { overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; }
+    .timeline-table { min-width: 900px; width: 100%; border-collapse: separate; border-spacing: 0; }
+    .timeline-table th, .timeline-table td { border-right: 1px solid #eee; border-bottom: 1px solid #eee; text-align: center; height: 50px; vertical-align: middle; padding: 0; }
+    
+    /* ヘッダー固定 */
+    .timeline-table thead th { position: sticky; top: 0; background: #28a745; color: white; z-index: 10; }
+    .timeline-table th.date-col { position: sticky; left: 0; background: #f8f9fa; z-index: 11; width: 100px; border-right: 2px solid #ddd; }
+    
+    /* セルの状態 */
+    .slot-avail { cursor: pointer; background: white; }
+    .slot-avail:hover { background: #e8f5e9; }
+    .slot-booked { background: #d1e7dd; color: #0f5132; font-size: 0.8em; }
+    .slot-selected { background: #ffc107 !important; } /* 選択中：黄色 */
+
+    /* 確定エリア */
+    #confirm-bar {
+        position: fixed; bottom: 0; left: 0; right: 0; 
+        background: rgba(255,255,255,0.95); border-top: 3px solid #dc3545;
+        padding: 15px; text-align: center; display: none; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+</style>
+
+<h4>日時を選択してください</h4>
+<p>合計所要時間: <strong>{{ total_duration }}分</strong> ({{ (total_duration/30)|int }}コマ分) の空きを選択してください</p>
+
+<div class="timeline-wrapper">
+    <table class="timeline-table">
+        <thead>
+            <tr>
+                <th class="date-col">日付</th>
+                {% for t in time_slots %}<th>{{ t }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for date in dates %}
+            {% set d_str = date.strftime('%Y-%m-%d') %}
+            <tr>
+                <th class="date-col">{{ date.strftime('%m/%d') }}<br><small>({{ date.strftime('%a') }})</small></th>
+                
+                {% for t in time_slots %}
+                    {% set cell = schedule[d_str][t] %}
+                    
+                    {% if cell.status == 'booked' %}
+                        <td class="slot-booked" colspan="{{ cell.span }}">予約済</td>
+                    {% elif cell.status == 'booked_span' %}
+                        {% else %}
+                        <td class="slot-avail" 
+                            data-date="{{ d_str }}" 
+                            data-time="{{ t }}" 
+                            onclick="selectSlot(this)">〇</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="confirm-bar">
+    <div class="container d-flex align-items-center justify-content-center gap-4">
+        <div class="text-start">
+            <h5 class="mb-0 text-danger">予約日時: <span id="disp-datetime"></span>〜</h5>
+            <small>合計: ¥{{ total_price }} / {{ total_duration }}分</small>
+        </div>
+        <form action="{{ url_for('book') }}" method="POST">
+            <input type="hidden" name="date" id="inp-date">
+            <input type="hidden" name="time" id="inp-time">
+            <button type="submit" class="btn btn-danger btn-lg px-5 fw-bold">
+                予約確定（オーダー完了）
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const neededSlots = {{ (total_duration / 30)|int }};
+    
+    function selectSlot(td) {
+        // リセット
+        document.querySelectorAll('.slot-selected').forEach(e => e.classList.remove('slot-selected'));
+        document.getElementById('confirm-bar').style.display = 'none';
+
+        // 連続チェック
+        const row = td.parentNode;
+        const allCells = Array.from(row.children).filter(c => c.tagName === 'TD'); // thを除く
+        const idx = allCells.indexOf(td);
+        
+        let targetCells = [];
+        for(let i=0; i < neededSlots; i++) {
+            let next = allCells[idx + i];
+            // 枠外 or 空きじゃない場合はNG
+            if(!next || !next.classList.contains('slot-avail')) {
+                alert("連続した空き時間が足りません");
+                return;
+            }
+            targetCells.push(next);
+        }
+
+        // OKならハイライト
+        targetCells.forEach(c => c.classList.add('slot-selected'));
+
+        // 確定ボタン表示
+        document.getElementById('disp-datetime').innerText = td.dataset.date + ' ' + td.dataset.time;
+        document.getElementById('inp-date').value = td.dataset.date;
+        document.getElementById('inp-time').value = td.dataset.time;
+        document.getElementById('confirm-bar').style.display = 'block';
+    }
+</script>
+{% endblock %}

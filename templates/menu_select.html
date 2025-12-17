@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">メニューを選択</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="add">
+                    <div class="mb-3">
+                        <select name="menu_key" class="form-select" size="5" required>
+                            {% for key, item in menu.items() %}
+                                <option value="{{ key }}">
+                                    {{ item.name }} ({{ item.duration }}分 / ¥{{ item.price }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-outline-success w-100">リストに追加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card border-success">
+            <div class="card-header bg-white text-success fw-bold">
+                <i class="bi bi-person-circle"></i> {{ user_name }} 様の予約リスト
+            </div>
+            <div class="card-body">
+                {% if cart %}
+                    <ul class="list-group mb-3">
+                        {% for item in cart %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ item.name }}</strong>
+                                    <span class="text-muted small ms-2">¥{{ item.price }}</span>
+                                </div>
+                                <form method="POST" style="margin:0;">
+                                    <input type="hidden" name="action" value="remove">
+                                    <input type="hidden" name="target_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">取り消し</button>
+                                </form>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <div class="alert alert-secondary text-end">
+                        合計: <span class="fw-bold fs-5">¥{{ total_price }}</span>
+                    </div>
+
+                    <a href="{{ url_for('review') }}" class="btn btn-success w-100 btn-lg shadow">
+                        メニュー選択完了・予約確認へ
+                    </a>
+                {% else %}
+                    <p class="text-muted text-center py-4">メニューがまだ選択されていません。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
