@@ -97,14 +97,22 @@ Tel: 03-1234-5678
 
     # 送信処理
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # 10秒で諦める設定(timeout=10)を追加
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
         server.starttls()
+
+        # パスワード設定がない場合は送信しない（エラー回避）
+        if not MAIL_SENDER or not MAIL_PASSWORD:
+            print("★メール設定がないため、送信をスキップします")
+            return
+
         server.login(MAIL_SENDER, MAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
         print(f"メール送信成功: {to_email}")
     except Exception as e:
-        print(f"メール送信失敗: {e}")
+        # エラーが起きてもアプリを落とさず、ログにだけ残す
+        print(f"★メール送信失敗（でも予約は完了させます）: {e}")
 
 # ... (中略) ...
 
